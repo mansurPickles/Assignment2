@@ -14,6 +14,7 @@
 /* The maximum size of the file name */
 #define MAX_FILE_NAME_SIZE 100
 
+
 /**
  * The structure representing the message
  * used by sender to send the name of the file
