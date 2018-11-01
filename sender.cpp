@@ -12,12 +12,14 @@
 #include <iostream>
 #include <cstring>
 #include <fstream>
+#include <vector>
 
 using namespace std;
 
 string fname; //global var of file name
 
 int debug = 1;
+ifstream f;
 
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
@@ -114,6 +116,9 @@ void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
 unsigned long sendFile(const char* fileName)
 {
 
+    char buffer[SHARED_MEMORY_CHUNK_SIZE];
+    int counter;
+
     /* A buffer to store message we will send to the receiver. */
     message sndMsg;
 
@@ -124,17 +129,40 @@ unsigned long sendFile(const char* fileName)
     unsigned long numBytesSent = 0;
 
     /* Open the file */
-    FILE* fp =  fopen(fileName, "r");
+    //FILE* fp =  fopen(fileName, "r");
+    f.open(fileName);
 
-    /* Was the file open? */
-    if(!fp)
+
+    if (!f.is_open())
     {
         perror("fopen");
         exit(-1);
     }
 
+
+    /* Was the file open? */
+    //    if(!fp)
+    //    {
+    //        perror("fopen");
+    //        exit(-1);
+    //    }
+
+    else {
+        cout << "opened fine\n";
+    }
+
+    while(!f.eof()){
+        f.getline(buffer,SHARED_MEMORY_CHUNK_SIZE-1);
+        cout << string(buffer) << endl;
+    }
+
+    f.close();
+    return 0;
+
+
     /* Read the whole file */
-    while(!feof(fp))
+
+//    while(!feof(fp))
     {
         /* Read at most SHARED_MEMORY_CHUNK_SIZE from the file and
          * store them in shared memory.  fread() will return how many bytes it has
@@ -142,6 +170,8 @@ unsigned long sendFile(const char* fileName)
          * SHARED_MEMORY_CHUNK_SIZE. Save the number of bytes that were actually
          * read in numBytesSent to record how many bytes were actually send.
          */
+
+
 
         /* TODO: count the number of bytes sent. */
 
@@ -162,7 +192,7 @@ unsigned long sendFile(const char* fileName)
 
 
     /* Close the file */
-    fclose(fp);
+    //    fclose(fp);
 
     return numBytesSent;
 }
@@ -237,7 +267,8 @@ int main(int argc, char* argv[])
 
         //checking to see if this works
         if (debug){
-        sendFileName(argv[1]);
+            sendFileName(argv[1]);
+            sendFile(argv[1]);
         }
         return 0;
     }
@@ -246,7 +277,7 @@ int main(int argc, char* argv[])
     init(shmid, msqid, sharedMemPtr);
 
     /* Send the name of the file */
-        sendFileName(argv[1]);
+    sendFileName(argv[1]);
 
     /* Send the file */
     fprintf(stderr, "The number of bytes sent is %lu\n", sendFile(argv[1]));
