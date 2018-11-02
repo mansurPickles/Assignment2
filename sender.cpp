@@ -16,6 +16,19 @@
 
 using namespace std;
 
+
+/* README: so there are a bunch of debug statements and repetetive functions in this. Basically I am trying to
+ * make sure all these functions work before throwing them all together. How it is right now the sender and
+ * receiver are unaware of each other. With the debug set to 1 all these do is make the shmid and
+ * msgid get the pointer and then deallocate itself.
+ *
+ * for this one I also started working on the structure created the filename one and started working on the
+ * actual contents of the file. Whats left is to init it the message queue. Finish the send message
+ *
+ * to run: ./send keyfile.txt
+*/
+
+
 string fname; //global var of file name
 
 int debug = 1;
@@ -85,14 +98,19 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     //create pointer to start of mem segment
     char* shared_memory = (char*) shmat (shmid, NULL, 0);
 
-    /* Deallocate the memory segment */
-    if(shmctl (shmid, IPC_RMID, 0) < 0)
-    {
-        perror("shmctl");
-    }
 
-    else {
-        cout << "mem deallocated\n";
+    // -------------- this is just for debug, deallocating --------------
+    if (debug){
+
+        /* Deallocate the memory segment */
+        if(shmctl (shmid, IPC_RMID, 0) < 0)
+        {
+            perror("shmctl");
+        }
+
+        else {
+            cout << "mem deallocated\n";
+        }
     }
 
 }
@@ -162,7 +180,7 @@ unsigned long sendFile(const char* fileName)
 
     /* Read the whole file */
 
-//    while(!feof(fp))
+    //    while(!feof(fp))
     {
         /* Read at most SHARED_MEMORY_CHUNK_SIZE from the file and
          * store them in shared memory.  fread() will return how many bytes it has
@@ -259,17 +277,24 @@ int main(int argc, char* argv[])
         exit(-1);
     }
 
+
     //only checks the first argument
     else {
-        fname = argv[1];
-        cout << "sender works\n";
-        cout << fname << endl;
+
+        if (debug){
+            fname = argv[1];
+            cout << "sender works\n";
+            cout << fname << endl;
+        }
 
         //checking to see if this works
+        //this code does nothing but checks if we are able to create the filename and send the file
+
         if (debug){
-            sendFileName(argv[1]);
-            sendFile(argv[1]);
+            sendFileName(argv[1]);      //these are repeated down below -- FOR TESTING ONLY
+            sendFile(argv[1]);          //these are repeated down below -- FOR TESTING ONLY
         }
+
         return 0;
     }
 

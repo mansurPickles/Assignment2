@@ -13,11 +13,16 @@
 #include <cstring>
 #include <fstream>
 
-int DEBUG =1;
+using namespace std;
+
+
+/* README:
+ * to run: ./receive
+*/
+
+int debug =1;
 
 /* For the message struct */
-
-using namespace std;
 
 /* The size of the shared memory segment */
 #define SHARED_MEMORY_CHUNK_SIZE 1000
@@ -110,14 +115,18 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     //create pointer to start of mem segment
     char* shared_memory = (char*) shmat (shmid, NULL, 0);
 
-    /* Deallocate the memory segment */
-    if(shmctl (shmid, IPC_RMID, 0) < 0)
-    {
-        perror("shmctl");
-    }
+    // -------------- this is just for debug, deallocating --------------
 
-    else {
-        cout << "mem deallocated\n";
+    if (debug){
+        /* Deallocate the memory segment */
+        if(shmctl (shmid, IPC_RMID, 0) < 0)
+        {
+            perror("shmctl");
+        }
+
+        else {
+            cout << "mem deallocated\n";
+        }
     }
 
     //-----------------  creation of message queue   ---------------------------
@@ -148,13 +157,18 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 
     }
 
-    if (msgctl(msqid, IPC_RMID, NULL) < 0){
-        perror("msgctl");
+    // -------------- this is just for debug, deallocating --------------
 
-    }
+    if (debug){
 
-    else {
-        cout << "msg queue deallocated\n";
+        if (msgctl(msqid, IPC_RMID, NULL) < 0){
+            perror("msgctl");
+
+        }
+
+        else {
+            cout << "msg queue deallocated\n";
+        }
     }
 
 
