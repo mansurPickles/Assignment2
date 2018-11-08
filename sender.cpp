@@ -67,7 +67,7 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     /* TODO: Attach to the shared memory */
     /* TODO: Attach to the message queue */
     /* Store the IDs and the pointer to the shared memory region in the corresponding function parameters */
-
+    string fname = "keyfile.txt";       //string fname
     char fname2 [fname.size()+1];       //convert string to char array
     strcpy(fname2,fname.c_str());
     key_t key = ftok(fname2,'a');       //unique key using fname2 and 'a' as ID
@@ -83,7 +83,7 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 
     //create shmid using key, 1000 block size, read/write
     //REMOVE IPC_CREAT
-    shmid = shmget(key,SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT);
+    shmid = shmget(key,SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR);
 
     //error check shmget
     if(shmid < 0)
@@ -100,7 +100,7 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     char* shared_memory = (char*) shmat (shmid, NULL, 0);
 
     //remove IPC_CREAT after testing
-    msqid = msgget(key, S_IRUSR | S_IWUSR | IPC_CREAT);     //dont nead to crate just join
+    msqid = msgget(key, S_IRUSR | S_IWUSR);     //dont nead to crate just join
 
     if(msqid < 0)
     {
@@ -110,7 +110,19 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 
 
     // -------------- this is just for debug, deallocating --------------
-    if (debug==4){
+
+}
+
+/**
+ * Performs the cleanup functions
+ * @param sharedMemPtr - the pointer to the shared memory
+ * @param shmid - the id of the shared memory segment
+ * @param msqid - the id of the message queue
+ */
+void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
+{
+    /* TODO: Detach from shared memory */
+
 
         /* Deallocate the memory segment */
         if(shmctl (shmid, IPC_RMID, 0) < 0)
@@ -131,21 +143,6 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
         else {
             cout << "msg queue deallocated\n";
         }
-    }
-
-
-
-}
-
-/**
- * Performs the cleanup functions
- * @param sharedMemPtr - the pointer to the shared memory
- * @param shmid - the id of the shared memory segment
- * @param msqid - the id of the message queue
- */
-void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
-{
-    /* TODO: Detach from shared memory */
 }
 
 /**
@@ -156,10 +153,11 @@ void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
 unsigned long sendFile(const char* fileName)
 {
 
+    cout << "in sendFile\n";
+
     char buffer[SHARED_MEMORY_CHUNK_SIZE];
     int counter = 0;
     int fileSize;
-    size_t hello;
 
     vector<string> text;
 
@@ -211,7 +209,6 @@ unsigned long sendFile(const char* fileName)
     strcpy(memPtr,text.at(i).c_str());
     sndMsg.mtype = SENDER_DATA_TYPE;
     sndMsg.size = text.at(i).size();
-
     if(msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0) <0){
         perror("msgsend");
         exit(-1);
@@ -227,11 +224,24 @@ unsigned long sendFile(const char* fileName)
 
     else {
         cout << "waiting\n";
+        numBytesSent+= sndMsg.size;
+
     }
 
 
 
 
+    }
+
+    //done
+
+    //sending last message with size of 0
+    sndMsg.mtype = SENDER_DATA_TYPE;
+    sndMsg.size = 0;
+
+    if(msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0) <0){
+        perror("msgsend");
+        exit(-1);
     }
 
 
@@ -293,7 +303,7 @@ void sendFileName(const char* fileName)
         perror("fileName exceeded maxsize\n");
         exit (-1);
     }
-
+    fname = (string)fileName;
     fileNameMsg nameMsg;
 
     char fname2 [fname.size()+1];                           // convert string to char array
@@ -305,11 +315,23 @@ void sendFileName(const char* fileName)
 
     nameMsg.mtype = FILE_NAME_TRANSFER_TYPE;                // setting mtype to 3
 
-    if (debug){
-        cout << "fname size: " << fileNameSize << endl;
+//    if (debug){
+//        cout << "fname size: " << fileNameSize << endl;
         cout << "fname: " <<string(nameMsg.fileName) << endl;
-        cout << "mtype: " << nameMsg.mtype << endl;
+//        cout << "mtype: " << nameMsg.mtype << endl;
+//    }
+
+    cout << "before send\n";
+    if(msgsnd(msqid, &nameMsg, sizeof(fileNameMsg) - sizeof(long), 0) <0){
+        perror("msgsend");
+        exit(-1);
     }
+
+    else {
+        cout << "sent fname\n";
+    }
+
+
 
 
 
@@ -337,33 +359,20 @@ int main(int argc, char* argv[])
     }
 
 
-    //only checks the first argument
-    else {
-
-        if (debug){
-            fname = argv[1];
-            cout << "sender works\n";
-            cout << fname << endl;
-        }
-
-        //checking to see if this works
-        //this code does nothing but checks if we are able to create the filename and send the file
-
-        if (debug){
-            init(shmid, msqid, sharedMemPtr);
-
-            sendFileName(argv[1]);      //these are repeated down below -- FOR TESTING ONLY
-            sendFile(argv[1]);          //these are repeated down below -- FOR TESTING ONLY
-        }
-
-        return 0;
-    }
-
     /* Connect to shared memory and the message queue */
-//    init(shmid, msqid, sharedMemPtr);
+    init(shmid, msqid, sharedMemPtr);
 
     /* Send the name of the file */
     sendFileName(argv[1]);
+
+    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
+
+    cout << "file sent\n";
+//    cleanUp(shmid,msqid, sharedMemPtr);
+//    return 0;
+
+    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
+
 
     /* Send the file */
     fprintf(stderr, "The number of bytes sent is %lu\n", sendFile(argv[1]));

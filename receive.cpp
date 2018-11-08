@@ -43,6 +43,17 @@ string recvFileName()
     /* The file name received from the sender */
     string fileName;
 
+
+    fileNameMsg fname;
+
+    cout << "waiting to receive\n";
+    if(msgrcv(msqid,&fname, sizeof(fileNameMsg)-sizeof(long), FILE_NAME_TRANSFER_TYPE, 0) < 0){
+        perror("msgrcv");
+        exit(-1);
+    }
+
+    fileName = string (fname.fileName);
+
     /* TODO: declare an instance of the fileNameMsg struct to be
      * used for holding the message received from the sender.
          */
@@ -50,7 +61,8 @@ string recvFileName()
         /* TODO: Receive the file name using msgrcv() */
 
     /* TODO: return the received file name */
-
+        cout << "after receive\n";
+        cout << "fname: " << fileName << endl;
         return fileName;
 }
  /**
@@ -114,20 +126,11 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 
     //create pointer to start of mem segment
     char* shared_memory = (char*) shmat (shmid, NULL, 0);
+    sharedMemPtr = (void*)shared_memory;
 
     // -------------- this is just for debug, deallocating --------------
 
-    if (debug){
-        /* Deallocate the memory segment */
-        if(shmctl (shmid, IPC_RMID, 0) < 0)
-        {
-            perror("shmctl");
-        }
 
-        else {
-            cout << "mem deallocated\n";
-        }
-    }
 
     //-----------------  creation of message queue   ---------------------------
 
@@ -155,22 +158,6 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 
     }
 
-    // -------------- this is just for debug, deallocating --------------
-
-    if (debug){
-
-        if (msgctl(msqid, IPC_RMID, NULL) < 0){
-            perror("msgctl");
-
-        }
-
-        else {
-            cout << "msg queue deallocated\n";
-        }
-    }
-
-
-
 }
 
 
@@ -181,6 +168,9 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
  */
 unsigned long mainLoop(const char* fileName)
 {
+    cout << "in receive mainloop\n";
+
+
     /* The size of the message received from the sender */
     int msgSize = -1;
 
@@ -191,6 +181,8 @@ unsigned long mainLoop(const char* fileName)
     string recvFileNameStr = fileName;
 
     /* TODO: append __recv to the end of file name */
+
+    recvFileNameStr+="__recv";
 
     /* Open the file for writing */
     FILE* fp = fopen(recvFileNameStr.c_str(), "w");
@@ -208,7 +200,10 @@ unsigned long mainLoop(const char* fileName)
      */
     while(msgSize != 0)
     {
+        cout << "msgSize!=0 first loop\n";
 
+
+//        return 0;
         /* TODO: Receive the message and get the value of the size field. The message will be of
          * of type SENDER_DATA_TYPE. That is, a message that is an instance of the message struct with
          * mtype field set to SENDER_DATA_TYPE (the macro SENDER_DATA_TYPE is defined in
@@ -222,18 +217,54 @@ unsigned long mainLoop(const char* fileName)
          */
 
         /* If the sender is not telling us that we are done, then get to work */
+        message msg;
+        ackMessage confirm;
+
         if(msgSize != 0)
         {
             /* TODO: record the number of bytes received */
+
+            msgSize = msg.size;
+            numBytesRecv = msgSize;
 
             /* Save into the file the data in shared memory (that was put there
              *  by the sender)
                          */
 
+            if(msgrcv(msqid,&msg, sizeof(message)-sizeof(long), SENDER_DATA_TYPE, 0) < 0){
+                perror("msgrcv");
+                exit(-1);
+            }
+
+            else {
+                cout << "message receive\n";
+                confirm.mtype = RECV_DONE_TYPE;
+                char temp [msgSize];                   //creation of char array to store whole textFile
+                int walker = 0;
+
+                return 0;
+
+                //*********************************issue here******************************
+                char *memPtr = (char*) & sharedMemPtr;
+
+                for (int i=0; i< msgSize; i++){
+                    temp[i] = *(memPtr+i);
+                }
+
+                cout << string(temp) << endl;
+
+
+                fwrite(temp,sizeof(char), msgSize, fp);
+            }
+
             /* TODO: Tell the sender that we are ready for the next set of bytes.
              * I.e., send a message of type RECV_DONE_TYPE. That is, a message
              * of type ackMessage with mtype field set to RECV_DONE_TYPE.
              */
+
+            if(msgsnd(msqid,&confirm,sizeof(ackMessage)-sizeof(long),  0) < 0){
+                perror("confirm failed\n");
+            }
         }
         /* We are done */
         else
@@ -261,6 +292,30 @@ void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
     /* TODO: Deallocate the shared memory segment */
 
     /* TODO: Deallocate the message queue */
+
+    /* Deallocate the memory segment */
+
+    // Deallocate Shared Memory
+    if(shmctl (shmid, IPC_RMID, 0) < 0)
+    {
+        perror("shmctl");
+    }
+
+    else {
+        cout << "mem deallocated\n";
+    }
+
+    // Deallocate Message Queue
+
+    if (msgctl(msqid, IPC_RMID, NULL) < 0){
+        perror("msgctl");
+
+    }
+
+    else {
+        cout << "msg queue deallocated\n";
+    }
+
 }
 
 /**
@@ -288,12 +343,24 @@ int main(int argc, char** argv)
     /* Receive the file name from the sender */
     string fileName = recvFileName();
 
+
+    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
+    cout << "received fname\n";
+//    cleanUp(shmid,msqid, sharedMemPtr);
+//    return 0;
+
+    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
+
+
     /* Go to the main loop */
     fprintf(stderr, "The number of bytes received is: %lu\n", mainLoop(fileName.c_str()));
 
     /* TODO: Detach from shared memory segment, and deallocate shared memory
      * and message queue (i.e. call cleanup)
      */
+
+        cleanUp(shmid,msqid, sharedMemPtr);
+
 
     return 0;
 }
