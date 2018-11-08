@@ -82,7 +82,8 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     cout << "key: " << key << endl;
 
     //create shmid using key, 1000 block size, read/write
-    shmid = shmget(key,SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR);
+    //REMOVE IPC_CREAT
+    shmid = shmget(key,SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT);
 
     //error check shmget
     if(shmid < 0)
@@ -98,9 +99,18 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     //create pointer to start of mem segment
     char* shared_memory = (char*) shmat (shmid, NULL, 0);
 
+    //remove IPC_CREAT after testing
+    msqid = msgget(key, S_IRUSR | S_IWUSR | IPC_CREAT);     //dont nead to crate just join
+
+    if(msqid < 0)
+    {
+        perror("msgget failed");
+        exit(-1);
+    }
+
 
     // -------------- this is just for debug, deallocating --------------
-    if (debug){
+    if (debug==4){
 
         /* Deallocate the memory segment */
         if(shmctl (shmid, IPC_RMID, 0) < 0)
@@ -111,7 +121,19 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
         else {
             cout << "mem deallocated\n";
         }
+
+
+        if (msgctl(msqid, IPC_RMID, NULL) < 0){
+            perror("msgctl");
+
+        }
+
+        else {
+            cout << "msg queue deallocated\n";
+        }
     }
+
+
 
 }
 
@@ -135,7 +157,11 @@ unsigned long sendFile(const char* fileName)
 {
 
     char buffer[SHARED_MEMORY_CHUNK_SIZE];
-    int counter;
+    int counter = 0;
+    int fileSize;
+    size_t hello;
+
+    vector<string> text;
 
     /* A buffer to store message we will send to the receiver. */
     message sndMsg;
@@ -147,34 +173,68 @@ unsigned long sendFile(const char* fileName)
     unsigned long numBytesSent = 0;
 
     /* Open the file */
-    //FILE* fp =  fopen(fileName, "r");
-    f.open(fileName);
+    FILE* fp =  fopen(fileName, "r");
+//    f.open(fileName);
 
 
-    if (!f.is_open())
-    {
-        perror("fopen");
+
+    if (fp==NULL) {
+        fputs ("File error",stderr); exit (-1);
+    }
+
+
+
+    // obtain file size:
+    fseek (fp , 0 , SEEK_END);
+    fileSize = ftell (fp);
+    rewind (fp);
+
+    char temp [fileSize];                   //creation of char array to store whole textFile
+    fread(temp,1,fileSize,fp);              //read the whole file
+    string str = string(temp);              //convert to string for ease of use
+    fclose(fp);                             //done with file
+
+    //section off into SHARED_MEM chunks
+    for(int i=0; i< fileSize/SHARED_MEMORY_CHUNK_SIZE; i++ ){
+        string s1 = str.substr(i*SHARED_MEMORY_CHUNK_SIZE,SHARED_MEMORY_CHUNK_SIZE);
+        text.push_back(s1);
+    }
+
+    //this is for last block which isnt full
+    int last = fileSize/SHARED_MEMORY_CHUNK_SIZE;
+    last = last* SHARED_MEMORY_CHUNK_SIZE;
+    string s1 = str.substr(last,fileSize-last);
+    text.push_back(s1);
+
+    for (int i=0; i< text.size(); i++){
+    char *memPtr = (char*) & sharedMemPtr;
+    strcpy(memPtr,text.at(i).c_str());
+    sndMsg.mtype = SENDER_DATA_TYPE;
+    sndMsg.size = text.at(i).size();
+
+    if(msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0) <0){
+        perror("msgsend");
+        exit(-1);
+    }
+    cout << "package sent: " << endl;
+    cout << sndMsg.mtype << endl;
+    cout << sndMsg.size << endl;
+    cout << string(memPtr) << endl;
+    if(msgrcv(msqid,&rcvMsg, sizeof(ackMessage)-sizeof(long), RECV_DONE_TYPE, 0) < 0){
+        perror("msgrcv");
         exit(-1);
     }
 
-
-    /* Was the file open? */
-    //    if(!fp)
-    //    {
-    //        perror("fopen");
-    //        exit(-1);
-    //    }
-
     else {
-        cout << "opened fine\n";
+        cout << "waiting\n";
     }
 
-    while(!f.eof()){
-        f.getline(buffer,SHARED_MEMORY_CHUNK_SIZE-1);
-        cout << string(buffer) << endl;
+
+
+
     }
 
-    f.close();
+
     return 0;
 
 
@@ -269,7 +329,6 @@ void sendFileName(const char* fileName)
 int main(int argc, char* argv[])
 {
 
-
     /* Check the command line arguments */
     if(argc < 2)
     {
@@ -291,6 +350,8 @@ int main(int argc, char* argv[])
         //this code does nothing but checks if we are able to create the filename and send the file
 
         if (debug){
+            init(shmid, msqid, sharedMemPtr);
+
             sendFileName(argv[1]);      //these are repeated down below -- FOR TESTING ONLY
             sendFile(argv[1]);          //these are repeated down below -- FOR TESTING ONLY
         }
@@ -299,7 +360,7 @@ int main(int argc, char* argv[])
     }
 
     /* Connect to shared memory and the message queue */
-    init(shmid, msqid, sharedMemPtr);
+//    init(shmid, msqid, sharedMemPtr);
 
     /* Send the name of the file */
     sendFileName(argv[1]);

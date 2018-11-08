@@ -132,8 +132,6 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     //-----------------  creation of message queue   ---------------------------
 
 
-    key = ftok(fname2,'b');     //using the same file and incrementing the char
-
     cout << "key: " << key << endl;
 
     /* Make sure the key generation succeeded */
