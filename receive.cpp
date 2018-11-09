@@ -94,7 +94,7 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
 
     /* TODO: Store the IDs and the pointer to the shared memory region in the corresponding parameters */
 
-    //2
+
     string fname = "keyfile.txt";       //string fname
     char fname2 [fname.size()+1];       //convert string to char array
     strcpy(fname2,fname.c_str());
@@ -109,6 +109,9 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     }
 
     cout << "key: " << key << endl;
+
+    //-----------------  creation of shared memory   ---------------------------
+
 
     //create shmid using key, 1000 block size, read/write, create if not made, exit if already made
     shmid = shmget(key,SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR | IPC_CREAT | IPC_EXCL);
@@ -127,8 +130,6 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     //create pointer to start of mem segment
     char* shared_memory = (char*) shmat (shmid, NULL, 0);
     sharedMemPtr = (void*)shared_memory;
-
-    // -------------- this is just for debug, deallocating --------------
 
 
 
@@ -217,6 +218,7 @@ unsigned long mainLoop(const char* fileName)
          */
 
         /* If the sender is not telling us that we are done, then get to work */
+
         message msg;
         ackMessage confirm;
 
@@ -224,7 +226,7 @@ unsigned long mainLoop(const char* fileName)
         {
             /* TODO: record the number of bytes received */
 
-            msgSize = msg.size;
+//            msgSize = msg.size;
             numBytesRecv = msgSize;
 
             /* Save into the file the data in shared memory (that was put there
@@ -238,21 +240,17 @@ unsigned long mainLoop(const char* fileName)
 
             else {
                 cout << "message receive\n";
-                confirm.mtype = RECV_DONE_TYPE;
-                char temp [msgSize];                   //creation of char array to store whole textFile
-                int walker = 0;
+                confirm.mtype = RECV_DONE_TYPE;         //setting confirm mtype
+                char temp [msgSize];                    //creation of char array to store whole textFile
+                msgSize = msg.size;                     //size set
+                cout << "size: " << msgSize << endl;
 
-                return 0;
 
                 //*********************************issue here******************************
-                char *memPtr = (char*) & sharedMemPtr;
 
-                for (int i=0; i< msgSize; i++){
-                    temp[i] = *(memPtr+i);
-                }
-
+                cout << "contents: "; //should print "hello world"
+                strncpy(temp, (char*) &sharedMemPtr, 12);
                 cout << string(temp) << endl;
-
 
                 fwrite(temp,sizeof(char), msgSize, fp);
             }
@@ -264,6 +262,7 @@ unsigned long mainLoop(const char* fileName)
 
             if(msgsnd(msqid,&confirm,sizeof(ackMessage)-sizeof(long),  0) < 0){
                 perror("confirm failed\n");
+                exit(-1);
             }
         }
         /* We are done */
@@ -273,7 +272,6 @@ unsigned long mainLoop(const char* fileName)
             fclose(fp);
         }
     }
-
     return numBytesRecv;
 }
 
@@ -343,13 +341,7 @@ int main(int argc, char** argv)
     /* Receive the file name from the sender */
     string fileName = recvFileName();
 
-
-    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
     cout << "received fname\n";
-//    cleanUp(shmid,msqid, sharedMemPtr);
-//    return 0;
-
-    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
 
 
     /* Go to the main loop */

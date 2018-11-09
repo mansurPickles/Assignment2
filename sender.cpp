@@ -61,12 +61,11 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
        on the system has a unique id, but different objects may have the same key.
     */
 
-
-
     /* TODO: Get the id of the shared memory segment. The size of the segment must be SHARED_MEMORY_CHUNK_SIZE */
     /* TODO: Attach to the shared memory */
     /* TODO: Attach to the message queue */
     /* Store the IDs and the pointer to the shared memory region in the corresponding function parameters */
+
     string fname = "keyfile.txt";       //string fname
     char fname2 [fname.size()+1];       //convert string to char array
     strcpy(fname2,fname.c_str());
@@ -82,7 +81,6 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     cout << "key: " << key << endl;
 
     //create shmid using key, 1000 block size, read/write
-    //REMOVE IPC_CREAT
     shmid = shmget(key,SHARED_MEMORY_CHUNK_SIZE, S_IRUSR | S_IWUSR);
 
     //error check shmget
@@ -99,8 +97,8 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
     //create pointer to start of mem segment
     char* shared_memory = (char*) shmat (shmid, NULL, 0);
 
-    //remove IPC_CREAT after testing
-    msqid = msgget(key, S_IRUSR | S_IWUSR);     //dont nead to crate just join
+    //get the messeage queue ID
+    msqid = msgget(key, S_IRUSR | S_IWUSR);
 
     if(msqid < 0)
     {
@@ -108,8 +106,10 @@ void init(int& shmid, int& msqid, void*& sharedMemPtr)
         exit(-1);
     }
 
+    else {
+        cout << "msg queue allocated: " << msqid << endl;
 
-    // -------------- this is just for debug, deallocating --------------
+    }
 
 }
 
@@ -124,25 +124,17 @@ void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
     /* TODO: Detach from shared memory */
 
 
-        /* Deallocate the memory segment */
-        if(shmctl (shmid, IPC_RMID, 0) < 0)
-        {
-            perror("shmctl");
-        }
+    /* Deallocate the memory segment */
+    if(shmctl (shmid, IPC_RMID, 0) < 0)
+    {
+        perror("shmctl");
+        exit(-1);
+    }
 
-        else {
-            cout << "mem deallocated\n";
-        }
+    else {
+        cout << "mem deallocated\n";
+    }
 
-
-        if (msgctl(msqid, IPC_RMID, NULL) < 0){
-            perror("msgctl");
-
-        }
-
-        else {
-            cout << "msg queue deallocated\n";
-        }
 }
 
 /**
@@ -172,7 +164,7 @@ unsigned long sendFile(const char* fileName)
 
     /* Open the file */
     FILE* fp =  fopen(fileName, "r");
-//    f.open(fileName);
+    //    f.open(fileName);
 
 
 
@@ -181,77 +173,76 @@ unsigned long sendFile(const char* fileName)
     }
 
 
-
     // obtain file size:
-    fseek (fp , 0 , SEEK_END);
-    fileSize = ftell (fp);
-    rewind (fp);
+    fseek (fp , 0 , SEEK_END);              //find the end of the file
+    fileSize = ftell (fp);                  //get the size
+    rewind (fp);                            //bring ptr back to beginning of file
 
     char temp [fileSize];                   //creation of char array to store whole textFile
     fread(temp,1,fileSize,fp);              //read the whole file
     string str = string(temp);              //convert to string for ease of use
     fclose(fp);                             //done with file
 
-    //section off into SHARED_MEM chunks
+    //section off the temp[fileSize] into smaller full 1000byte blocks
     for(int i=0; i< fileSize/SHARED_MEMORY_CHUNK_SIZE; i++ ){
         string s1 = str.substr(i*SHARED_MEMORY_CHUNK_SIZE,SHARED_MEMORY_CHUNK_SIZE);
         text.push_back(s1);
     }
 
     //this is for last block which isnt full
-    int last = fileSize/SHARED_MEMORY_CHUNK_SIZE;
-    last = last* SHARED_MEMORY_CHUNK_SIZE;
-    string s1 = str.substr(last,fileSize-last);
-    text.push_back(s1);
+    int last = fileSize/SHARED_MEMORY_CHUNK_SIZE;       //get the div of fileSize/1000
+    last = last* SHARED_MEMORY_CHUNK_SIZE;              //multiply last * 1000
+    string s1 = str.substr(last,fileSize-last);         //use last as starting position, end at the (fileSize-last) should be end of array
+    text.push_back(s1);                                 //push last block into vector
 
     for (int i=0; i< text.size(); i++){
-    char *memPtr = (char*) & sharedMemPtr;
-    strcpy(memPtr,text.at(i).c_str());
-    sndMsg.mtype = SENDER_DATA_TYPE;
-    sndMsg.size = text.at(i).size();
-    if(msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0) <0){
-        perror("msgsend");
-        exit(-1);
+
+        char *memPtr = (char*) & sharedMemPtr;          //for ease of use
+        strcpy(memPtr,text.at(i).c_str());              //copy block into memory segment
+
+        sndMsg.mtype = SENDER_DATA_TYPE;                //set mtype to Sender Data
+        sndMsg.size = text.at(i).size();                //set msgSize
+
+        if(msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0) <0){
+            perror("msgsend");
+            exit(-1);
+        }
+
+        //-------------- for debug purposes ---------------------
+
+        cout << "package sent: " << endl;
+        cout << "mType: " << sndMsg.mtype << endl;
+        cout << "msgSize: " << sndMsg.size << endl;
+        cout << "contents: " << string(memPtr) << endl;
+
+
+        if(msgrcv(msqid,&rcvMsg, sizeof(ackMessage)-sizeof(long), RECV_DONE_TYPE, 0) < 0){
+            perror("msgrcv");
+            exit(-1);
+        }
+
+        else {
+            cout << "confirmed msg received\n";
+            numBytesSent+= sndMsg.size;
+
+        }
+
     }
-    cout << "package sent: " << endl;
-    cout << sndMsg.mtype << endl;
-    cout << sndMsg.size << endl;
-    cout << string(memPtr) << endl;
-    if(msgrcv(msqid,&rcvMsg, sizeof(ackMessage)-sizeof(long), RECV_DONE_TYPE, 0) < 0){
-        perror("msgrcv");
-        exit(-1);
-    }
-
-    else {
-        cout << "waiting\n";
-        numBytesSent+= sndMsg.size;
-
-    }
 
 
-
-
-    }
-
-    //done
-
+    //reached end
     //sending last message with size of 0
-    sndMsg.mtype = SENDER_DATA_TYPE;
-    sndMsg.size = 0;
+
+    sndMsg.mtype = SENDER_DATA_TYPE;            //set mtype Send
+    sndMsg.size = 0;                            //set size = 0 (END OF SENDING!)
 
     if(msgsnd(msqid, &sndMsg, sizeof(message) - sizeof(long), 0) <0){
         perror("msgsend");
         exit(-1);
     }
 
+    return numBytesSent;
 
-    return 0;
-
-
-    /* Read the whole file */
-
-    //    while(!feof(fp))
-    {
         /* Read at most SHARED_MEMORY_CHUNK_SIZE from the file and
          * store them in shared memory.  fread() will return how many bytes it has
          * actually read. This is important; the last chunk read may be less than
@@ -270,7 +261,7 @@ unsigned long sendFile(const char* fileName)
         /* TODO: Wait until the receiver sends us a message of type RECV_DONE_TYPE telling us
          * that he finished saving a chunk of memory.
          */
-    }
+
 
 
     /** TODO: once we are out of the above loop, we have finished sending the file.
@@ -278,11 +269,6 @@ unsigned long sendFile(const char* fileName)
       * sending a message of type SENDER_DATA_TYPE with size field set to 0.
       */
 
-
-    /* Close the file */
-    //    fclose(fp);
-
-    return numBytesSent;
 }
 
 /**
@@ -315,11 +301,9 @@ void sendFileName(const char* fileName)
 
     nameMsg.mtype = FILE_NAME_TRANSFER_TYPE;                // setting mtype to 3
 
-//    if (debug){
-//        cout << "fname size: " << fileNameSize << endl;
-        cout << "fname: " <<string(nameMsg.fileName) << endl;
-//        cout << "mtype: " << nameMsg.mtype << endl;
-//    }
+
+    cout << "fname: " <<string(nameMsg.fileName) << endl;
+
 
     cout << "before send\n";
     if(msgsnd(msqid, &nameMsg, sizeof(fileNameMsg) - sizeof(long), 0) <0){
@@ -328,11 +312,8 @@ void sendFileName(const char* fileName)
     }
 
     else {
-        cout << "sent fname\n";
+        cout << "after sent fname\n";
     }
-
-
-
 
 
 
@@ -365,14 +346,8 @@ int main(int argc, char* argv[])
     /* Send the name of the file */
     sendFileName(argv[1]);
 
-    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
 
-    cout << "file sent\n";
-//    cleanUp(shmid,msqid, sharedMemPtr);
-//    return 0;
-
-    //---------------HERE DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!--------------------------------------------------------------------
-
+    cout << "fileName sent, back in main now: \n";
 
     /* Send the file */
     fprintf(stderr, "The number of bytes sent is %lu\n", sendFile(argv[1]));
