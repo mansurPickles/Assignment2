@@ -17,13 +17,7 @@
 using namespace std;
 
 
-/* README: so there are a bunch of debug statements and repetetive functions in this. Basically I am trying to
- * make sure all these functions work before throwing them all together. How it is right now the sender and
- * receiver are unaware of each other. With the debug set to 1 all these do is make the shmid and
- * msgid get the pointer and then deallocate itself.
- *
- * for this one I also started working on the structure created the filename one and started working on the
- * actual contents of the file. Whats left is to init it the message queue. Finish the send message
+/* README:
  *
  * to run: ./send keyfile.txt
 */
