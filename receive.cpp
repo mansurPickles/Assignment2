@@ -241,16 +241,26 @@ unsigned long mainLoop(const char* fileName)
             else {
                 cout << "message receive\n";
                 confirm.mtype = RECV_DONE_TYPE;         //setting confirm mtype
-                char temp [msgSize];                    //creation of char array to store whole textFile
+                char temp [msgSize+1];                    //creation of char array to store whole textFile
                 msgSize = msg.size;                     //size set
+                cout << "message queue id: " << msqid << endl;
                 cout << "size: " << msgSize << endl;
 
 
                 //*********************************issue here******************************
 
                 cout << "contents: "; //should print "hello world"
-                strncpy(temp, (char*) &sharedMemPtr, 12);
-                cout << string(temp) << endl;
+                cout << "contents: " << string((char*) sharedMemPtr) << endl;
+
+                string stemp = string((char*) sharedMemPtr);
+
+                for (int i=0; i< stemp.size(); i++){
+                    temp[i] = stemp.at(i);
+                }
+                temp[stemp.size()+1] = '\0';
+//                strncpy(temp, (char*) &sharedMemPtr, msgSize);
+//                temp[msgSize+1] = '\0';
+//                cout << string(temp) << endl;
 
                 fwrite(temp,sizeof(char), msgSize, fp);
             }

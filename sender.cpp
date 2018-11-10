@@ -189,10 +189,17 @@ unsigned long sendFile(const char* fileName)
     string s1 = str.substr(last,fileSize-last);         //use last as starting position, end at the (fileSize-last) should be end of array
     text.push_back(s1);                                 //push last block into vector
 
-    for (int i=0; i< text.size(); i++){
+    cout << "before copy to shared mem\n";
 
-        char *memPtr = (char*) & sharedMemPtr;          //for ease of use
-        strcpy(memPtr,text.at(i).c_str());              //copy block into memory segment
+    char* shared_memory = (char*) shmat (shmid, NULL, 0);
+    string str2 = text.at(0);
+    for (int i=0; i< str2.size(); i++){
+        *(shared_memory +i) = str2.at(i);
+        cout <<  *(shared_memory +i);
+    }
+
+    for (int i=0; i< 1; i++){
+
 
         sndMsg.mtype = SENDER_DATA_TYPE;                //set mtype to Sender Data
         sndMsg.size = text.at(i).size();                //set msgSize
@@ -207,8 +214,6 @@ unsigned long sendFile(const char* fileName)
         cout << "package sent: " << endl;
         cout << "mType: " << sndMsg.mtype << endl;
         cout << "msgSize: " << sndMsg.size << endl;
-        cout << "contents: " << string(memPtr) << endl;
-
 
         if(msgrcv(msqid,&rcvMsg, sizeof(ackMessage)-sizeof(long), RECV_DONE_TYPE, 0) < 0){
             perror("msgrcv");
