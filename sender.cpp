@@ -190,15 +190,26 @@ unsigned long sendFile(const char* fileName)
     text.push_back(s1);                                 //push last block into vector
 
     cout << "before copy to shared mem\n";
+    cout << "vector size: " <<text.size() << endl;
 
-    char* shared_memory = (char*) shmat (shmid, NULL, 0);
-    string str2 = text.at(0);
-    for (int i=0; i< str2.size(); i++){
-        *(shared_memory +i) = str2.at(i);
-        cout <<  *(shared_memory +i);
-    }
+//    char* shared_memory = (char*) shmat (shmid, NULL, 0);
+//    string str2 = text.at(0);
+//    for (int i=0; i< str2.size(); i++){
+//        *(shared_memory +i) = str2.at(i);
+//        cout <<  *(shared_memory +i);
+//    }
 
-    for (int i=0; i< 1; i++){
+
+
+
+    for (int i=0; i< text.size(); i++){
+        char* shared_memory = (char*) shmat (shmid, NULL, 0);
+        string str2 = text.at(i);
+
+        for (int i=0; i< str2.size(); i++){
+            *(shared_memory +i) = str2.at(i);
+            cout <<  *(shared_memory +i);
+        }
 
 
         sndMsg.mtype = SENDER_DATA_TYPE;                //set mtype to Sender Data
@@ -228,7 +239,7 @@ unsigned long sendFile(const char* fileName)
 
     }
 
-
+    cout << "end of loop\n";
     //reached end
     //sending last message with size of 0
 
