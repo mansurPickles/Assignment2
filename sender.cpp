@@ -145,7 +145,7 @@ unsigned long sendFile(const char* fileName)
     int counter = 0;
     int fileSize;
 
-    vector<string> text;
+    vector<string> text;            //vector to store all the blocks of strings
 
     /* A buffer to store message we will send to the receiver. */
     message sndMsg;
@@ -180,7 +180,7 @@ unsigned long sendFile(const char* fileName)
     //section off the temp[fileSize] into smaller full 1000byte blocks
     for(int i=0; i< fileSize/SHARED_MEMORY_CHUNK_SIZE; i++ ){
         string s1 = str.substr(i*SHARED_MEMORY_CHUNK_SIZE,SHARED_MEMORY_CHUNK_SIZE);
-        text.push_back(s1);
+        text.push_back(s1);             //add this string block to the text vector
     }
 
     //this is for last block which isnt full
@@ -199,9 +199,7 @@ unsigned long sendFile(const char* fileName)
 //        cout <<  *(shared_memory +i);
 //    }
 
-
-
-
+    //loop to go through the vector of block strings
     for (int i=0; i< text.size(); i++){
         char* shared_memory = (char*) shmat (shmid, NULL, 0);
         string str2 = text.at(i);

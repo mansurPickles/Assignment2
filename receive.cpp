@@ -241,8 +241,7 @@ unsigned long mainLoop(const char* fileName)
             else {
                 cout << "message receive\n";
                 confirm.mtype = RECV_DONE_TYPE;         //setting confirm mtype
-                char temp [msgSize+1];                    //creation of char array to store whole textFile
-                msgSize = msg.size;                     //size set
+
                 cout << "message queue id: " << msqid << endl;
                 cout << "size: " << msgSize << endl;
 
@@ -252,7 +251,11 @@ unsigned long mainLoop(const char* fileName)
                 cout << "contents: "; //should print "hello world"
                 cout << "contents: " << string((char*) sharedMemPtr) << endl;
 
+
                 string stemp = string((char*) sharedMemPtr);
+
+                char temp [stemp.size()+1];                    //creation of char array to store whole textFile
+                msgSize = msg.size;                     //size set
 
                 for (int i=0; i< stemp.size(); i++){
                     temp[i] = stemp.at(i);
