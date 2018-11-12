@@ -300,13 +300,13 @@ unsigned long mainLoop(const char* fileName)
  */
 void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
 {
-    /* TODO: Detach from shared memory */
+    //Detach from shared memory
 
-    /* TODO: Deallocate the shared memory segment */
+    if (shmdt(sharedMemPtr)<0){
+        perror("shmdt");
+        exit(-1);
+    }
 
-    /* TODO: Deallocate the message queue */
-
-    /* Deallocate the memory segment */
 
     // Deallocate Shared Memory
     if(shmctl (shmid, IPC_RMID, 0) < 0)
@@ -341,8 +341,13 @@ void ctrlCSignal(int signal)
     cleanUp(shmid, msqid, sharedMemPtr);
 }
 
+
+
 int main(int argc, char** argv)
 {
+
+    signal(SIGINT, ctrlCSignal);
+
 
     /* TODO: Install a signal handler (see signaldemo.cpp sample file).
      * If user presses Ctrl-c, your program should delete the message

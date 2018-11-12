@@ -117,6 +117,11 @@ void cleanUp(const int& shmid, const int& msqid, void* sharedMemPtr)
 {
     /* TODO: Detach from shared memory */
 
+    if (shmdt(sharedMemPtr)<0){
+        perror("shmdt");
+        exit(-1);
+    }
+
 
     /* Deallocate the memory segment */
     if(shmctl (shmid, IPC_RMID, 0) < 0)
