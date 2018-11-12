@@ -254,13 +254,15 @@ unsigned long mainLoop(const char* fileName)
 
                 string stemp = string((char*) sharedMemPtr);
 
-                char temp [stemp.size()+1];                    //creation of char array to store whole textFile
+//                char temp [msg.size()+1];                    //creation of char array to store whole textFile
                 msgSize = msg.size;                     //size set
+                char temp [msgSize+1];                    //creation of char array to store whole textFile
 
-                for (int i=0; i< stemp.size(); i++){
+
+                for (int i=0; i< msgSize; i++){
                     temp[i] = stemp.at(i);
                 }
-                temp[stemp.size()+1] = '\0';
+                temp[msgSize] = '\0';
 //                strncpy(temp, (char*) &sharedMemPtr, msgSize);
 //                temp[msgSize+1] = '\0';
 //                cout << string(temp) << endl;
